@@ -41,9 +41,9 @@ This repository implements a **Kappa Architecture** streaming platform using Apa
        │ Real-time │    │  Data Lake  │
        │  Cache    │    │  Historical │
        ▼───────────┘    └─────────────┘
-    • Live Dashboards     • ML Training
-    • API Queries         • Compliance
-    • Fleet Tracking      • Analytics
+  • Live Dashboards       • ML Training
+  • API Queries           • Compliance
+  • Fleet Tracking        • Analytics
 ```
 
 ---
@@ -85,7 +85,7 @@ This repository implements a **Kappa Architecture** streaming platform using Apa
 
 ### 1. Clone & Setup
 ```bash
-cd /Users/abhinavmishra/Documents/P1
+cd <project-directory>
 git clone <repo-url> .
 ```
 
@@ -115,6 +115,11 @@ docker logs minio | head -5
 
 ### 5. Start Producer (in new terminal)
 ```bash
+# Activate virtual environment (if using venv)
+source venv/bin/activate  # macOS/Linux
+# or
+venv\Scripts\activate  # Windows
+
 python producer.py
 ```
 
@@ -128,10 +133,10 @@ docker logs -f flink-processor
 ## 📁 Project Structure
 
 ```
-P1/
+<project-directory>/
 ├── producer.py                      # GPS telemetry simulator (20 drivers)
-├── processor_enhanced.py            # Advanced Flink processing with windows
-├── processor_with_redis_minio.py   # Dual-sinking to Redis & MinIO
+├── processor.py                     # Flink SQL processing with windows & aggregations
+├── processor_with_redis_minio.py   # Dual-sinking to Redis & MinIO (optional)
 ├── docker-compose.yml              # Full stack orchestration
 ├── Dockerfile                      # Flink container with dependencies
 ├── pyproject.toml                  # Python project config
@@ -158,7 +163,7 @@ H3_RESOLUTION = 9          # Geospatial grid detail level
 UPDATE_INTERVAL = 2        # Seconds between pings per driver
 ```
 
-### **Processor_Enhanced.py** - Stream Processing
+### **processor.py** - Stream Processing
 Advanced Flink SQL with production patterns:
 - **Kafka Source**: Watermarked for handling late events
 - **Custom UDFs**: H3 indexing, anomaly detection, trip categorization
@@ -326,14 +331,14 @@ H3_RESOLUTION = 10  # Finer granularity (175m → 65m)
 
 ### Change Window Duration
 ```sql
--- In processor_enhanced.py
+-- In processor.py
 TUMBLE(event_time, INTERVAL '60' SECOND)  -- 60s instead of 30s
 SESSION(event_time, INTERVAL '10' MINUTE)  -- 10min instead of 5min
 ```
 
 ### Redis TTL
 ```python
-# In processor_with_redis_minio.py
+# In processor_with_redis_minio.py (optional dual-sink setup)
 self.redis_client.setex(cache_key, 120, value)  # 120 seconds instead of 60
 ```
 
@@ -452,12 +457,12 @@ docker logs flink-processor | grep -i "error"
 
 ## 📖 Further Learning
 
-- **ADVANCED_CONCEPTS_EXPLAINED.md** - Deep dive into:
-  - Stateful processing
-  - Watermarking & windowing
-  - Exactly-once semantics
-  - Complex event processing
-  - Session windows & trip reconstruction
+- **Code Comments** - Detailed explanations within each file:
+  - Stateful processing concepts in producer.py
+  - Windowing strategies in processor files
+  - Exactly-once semantics configuration
+  - Complex event processing logic
+  - Stream branching patterns
 
 ---
 
@@ -483,11 +488,11 @@ MIT License - See LICENSE file for details
 ## 💬 Questions?
 
 Refer to:
-1. **ADVANCED_CONCEPTS_EXPLAINED.md** for streaming patterns
+1. **Code comments** in each file for streaming concepts
 2. **Docker logs** for real-time diagnostics
-3. **Code comments** in producer.py and processor files
+3. **Configuration sections** above for customization options
+4. **Troubleshooting section** for common issues
 
 ---
 
 **Built with ❤️ using Apache Flink, Redpanda, Redis, and MinIO**
-
