@@ -13,10 +13,10 @@ This repository implements a **Kappa Architecture** streaming platform using Apa
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    PRODUCER (Mac)                           │
-│  • 20 Simulated Drivers with Stateful Behavior              │
-│  • Real-time GPS Pings (2s intervals)                       │
-│  • Speed Calculation & Trip State Management                │
-│  • 10 Events/second Output                                  │
+│  • 20 Simulated Drivers with Stateful Behavior            │
+│  • Real-time GPS Pings (2s intervals)                     │
+│  • Speed Calculation & Trip State Management              │
+│  • 10 Events/second Output                                │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
@@ -36,11 +36,11 @@ This repository implements a **Kappa Architecture** streaming platform using Apa
         │  • Stream Branching        │
         └────┬───────────────┬───────┘
              │               │
-       ┌─────▼─────┐    ┌────▼────────┐
-       │   REDIS   │    │   MINIO     │
-       │ Real-time │    │  Data Lake  │
-       │  Cache    │    │  Historical │
-       ▼───────────┘    └─────────────┘
+       ┌─────▼─────┐   ┌────▼────────┐
+       │   REDIS   │   │   MINIO     │
+       │ Real-time │   │  Data Lake  │
+       │  Cache    │   │  Historical │
+       ▼───────────┘   └─────────────┘
   • Live Dashboards       • ML Training
   • API Queries           • Compliance
   • Fleet Tracking        • Analytics
@@ -170,29 +170,46 @@ Advanced Flink SQL with production patterns:
 - **Tumbling Windows**: 30-second metrics aggregation
 - **Session Windows**: Trip reconstruction with 5-minute inactivity gaps
 
-### **Processor_with_Redis_MinIO.py** - Dual Sinking
-Stream branching pattern with two independent sinks:
+### **processor_with_redis_minio.py** - Dual-sinking processor (enhanced)
+Stream-branching processor that enriches GPS pings and writes to Redis (real-time) and MinIO (data lake).
 
-**Redis Sink (Real-time)**
-```json
-Key: driver:driver_000
-Value: {
-  "latitude": 28.614,
-  "longitude": 77.208,
-  "h3_cell": "8928308304c1fff",
-  "status": "on_trip",
-  "speed_kmh": 45.2,
-  "timestamp": "2026-05-17T14:23:45"
-}
-TTL: 60 seconds
+Key operational details:
+
+- **Redis Sink (Real-time cache)**
+  - Key: `driver:{driver_id}`
+  - Value: minimal JSON (lat, lon, h3_cell, status, speed_kmh, ts_str, anomaly_type)
+  - TTL: 60 seconds (keeps active driver set with 5min expiry)
+- **MinIO Sink (Data Lake)**
+  - Path pattern: `gps-data/year=YYYY/month=MM/day=DD/hour=HH/data_YYYYMMDD_HHMMSS.jsonl`
+  - Format: JSONL (one JSON per line), batched (default batch size: 100 events)
+
+New/expanded features in this processor (added recently):
+
+- UDFs: `hex_index()` (H3), `detect_anomaly()` (flags NEGATIVE_SPEED / IMPOSSIBLE_SPEED), `trip_duration_category()`
+- Windowed analytics: 30s tumbling window (zone metrics) and 1-min tumbling metrics for performance
+- Session windows: 5-minute inactivity gap for trip reconstruction and trip metrics
+- Anomaly side-stream: filtered stream of problematic events for alerting/monitoring
+- Exactly-once semantics: checkpointing enabled (60s) and watermarking for 10s late events
+- Dual-sinking pattern: real-time updates to Redis + batched writes to MinIO for archival and ML
+
+Quick run (development):
+```bash
+# Start containers
+docker compose up -d --build
+
+# Start producer in a separate shell
+python producer.py
+
+# Run the processor locally (use this for testing without building images)
+python processor_with_redis_minio.py
+
+# Or view Flink logs if deployed as a container
+docker logs -f flink-processor
 ```
 
-**MinIO Sink (Data Lake)**
-```
-Path: gps-data/year=2026/month=05/day=17/hour=14/data_20260517_142345.jsonl
-Format: JSONL (one JSON per line)
-Partitioning: Year/Month/Day/Hour for efficient querying
-```
+Notes:
+- Adjust Redis TTL or MinIO batch size in `processor_with_redis_minio.py` if needed.
+- When deployed inside the Flink container, ensure the connector JARs are present in `/opt/flink/lib/`.
 
 ---
 
